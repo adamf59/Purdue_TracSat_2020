@@ -8,4 +8,8 @@ Python-based control software running on Purdue University's TracSat project.
 
 ## Contributing
 
+## Required Hardware
+- PYNQ-Z1 Board
+  - SSH Access (default credentials are username: `xilinx` and password `xilinx`.
+
 ## How to Install & Setup
