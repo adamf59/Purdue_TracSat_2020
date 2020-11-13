@@ -14,8 +14,8 @@ from TracSatController.Core.TracSatError import SubsystemInitializationFailure, 
 
 class Subsystem:
     """
-    A dynamic, abstract class that can be used for
-
+    A dynamic, abstract class that can be used for small, independent systems that can interact with each other, while
+    still being systematically separate (isolated processes).
     """
 
     def __init__(self, subsystem_name):
@@ -102,6 +102,7 @@ class Subsystem:
         """
         Commands this subsystem to shutdown. A shutdown subsystem CANNOT be restarted.
         """
+        self.on_shutdown()
         self._is_shutdown = True
         self._is_halted = True  # Not entirely necessary, but a shutdown subsystem is also halted.
 
@@ -110,16 +111,16 @@ class Subsystem:
         Halt the subsystem in it's current state. A halted subsystem can be restarted with resume()
 
         """
-        self._is_halted = True
         self.on_halt()
+        self._is_halted = True
 
     def resume(self):
         """
         Resume the subsystem if it is currently halted.
         :return:
         """
+        self.on_resume()
         self._is_halted = False
-        self.on_resume
 
     def start(self):
         """
