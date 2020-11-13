@@ -5,7 +5,11 @@ __author__ = "Adam Frank"
 __version__ = 1.0
 
 from abc import abstractmethod
-from threading import Thread
+from threading import Thread, Event
+
+from TracSatController.Core import Logging
+from TracSatController.Core.TracSatError import SubsystemInitializationFailure, TargetNonExistentError, \
+    TargetAlreadyReachedError
 
 
 class Subsystem:
@@ -40,12 +44,14 @@ class Subsystem:
         return self.subsystem_name
 
     @abstractmethod
-    def on_initialize(self):
+    def initialize(self) -> bool:
         """
-        The on_initialize function will be run when the subsystem initialization is complete, and before the execution
-        function is started.
+        The initialization function is designed to be run immediately before the subsystem begins looping the execute
+        function. If your initialize function has determined that the subsystem should not be started, then leave
+        the function early by returning False. If your initialization is successful, then return True.
+
+        :return: True if the subsystem should begin execution, False if otherwise.
         """
-        pass
 
     @abstractmethod
     def execute(self):
@@ -83,16 +89,21 @@ class Subsystem:
         """
         Executes immediately when the shutdown() method is called. Keep in mind that the execution loop may still have
         one iteration left at the time of execution.
-        :return:
         """
         pass
+
+    @abstractmethod
+    def on_resume(self):
+        """
+        Executes immediately before the subsystem is resumed after being halted.
+        """
 
     def shutdown(self):
         """
         Commands this subsystem to shutdown. A shutdown subsystem CANNOT be restarted.
-
         """
-        pass
+        self._is_shutdown = True
+        self._is_halted = True  # Not entirely necessary, but a shutdown subsystem is also halted.
 
     def halt(self):
         """
@@ -108,6 +119,7 @@ class Subsystem:
         :return:
         """
         self._is_halted = False
+        self.on_resume
 
     def start(self):
         """
@@ -115,14 +127,14 @@ class Subsystem:
         :return:
         """
         if not self._subsystem_startup_did_occur:
-            self.__initialize_worker_thread()
+            self.__initialize_worker_thread(with_name=self.subsystem_name)
             self._subsystem_startup_did_occur = True
             self._worker_thread.start()
 
         else:
             return False
 
-    def aquire_lock(self):
+    def acquire_lock(self):
         """
         Block the thread this function is called from on this subsystem's worker, thus, the block will not be released
         until this subsystem has been shutdown.
@@ -133,17 +145,72 @@ class Subsystem:
         """
         Internal function for handling the execution worker states. Do not call.
         """
+        if not self.initialize():
+            raise SubsystemInitializationFailure(self.subsystem_name)
+
         while not self._is_shutdown:
-
-            while not self._is_halted:
-
+            if not self._is_halted:
                 self.execute()
 
     def __initialize_worker_thread(self, with_name=None, with_daemon=True):
         """
-        Internal function for intializing the worker process and event/interrupt handlers. Do not call.
+        Internal function for initializing the worker process and event/interrupt handlers. Do not call.
         :param with_name: The name of the worker thread
         :param with_daemon: Whether this worker thread should act as a daemon to the master thread
         :return: Nothing :)
         """
         self._worker_thread = Thread(name=with_name, daemon=with_daemon, target=self.__worker)
+
+
+class Requires:
+
+    _target_registry = []
+
+    @classmethod
+    def target(cls, target_name, wait=True) -> bool:
+
+        for tgt in cls._target_registry:
+            if type(tgt) == Target and tgt.target_name == target_name:
+                if tgt.is_reached():
+                    return True
+                elif wait:
+                    tgt.block()
+                    return True
+                else:
+                    return False
+
+        raise TargetNonExistentError(target_name)
+
+    @classmethod
+    def register(cls, target_name):
+        # TODO Does not check for conflicting target names
+        cls._target_registry.append(Target(target_name))
+
+    @classmethod
+    def reach_target(cls, target_name) -> bool:
+        for tgt in cls._target_registry:
+            if type(tgt) == Target and tgt.target_name == target_name:
+                if tgt.is_reached():
+                    raise TargetAlreadyReachedError(target_name)
+                else:
+                    tgt.reach()
+                    return True
+
+        raise TargetNonExistentError(target_name)
+
+
+class Target:
+
+    def __init__(self, target_name):
+        self.target_name = target_name
+        self.target_lock = Event()
+
+    def reach(self):
+        Logging.log("[OK] Reached target: " + self.target_name)
+        self.target_lock.set()
+
+    def is_reached(self) -> bool:
+        return self.target_lock.is_set()
+
+    def block(self):
+        self.target_lock.wait()
