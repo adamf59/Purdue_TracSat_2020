@@ -136,7 +136,6 @@ class ContinuousSubsystem(SubsystemFoundation):
         pass
 
     def shutdown(self):
-        self._is_halted = True  # Not entirely necessary, but a shutdown subsystem is also halted.
         super().shutdown()
 
     @abstractmethod
@@ -209,7 +208,6 @@ class ContinuousSubsystem(SubsystemFoundation):
                 if not halt_fulfilled:
                     Requires.reach_target(self.subsystem_name + ".halt")
                     halt_fulfilled = True
-        self.shutdown()
         self.after_shutdown()
 
 
@@ -233,6 +231,10 @@ class SingleExecutionSubsystem(SubsystemFoundation):
 
     @abstractmethod
     def after_shutdown(self):
+        """
+        Is functionally equivalent to on_shutdown() in SingleExecutionSubsystems. For faster execution, use
+        :return:
+        """
         pass
 
     def _worker(self):
