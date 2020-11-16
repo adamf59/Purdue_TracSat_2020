@@ -1,46 +1,29 @@
 from time import sleep
 
-from TracSatController.Core.Utility import Subsystem, Requires
+from TracSatController.Core.Foundation import ContinuousSubsystem, Requires, SingleExecutionSubsystem
 
 
-class TestSubsystem(Subsystem):
+class TestSubsystem(SingleExecutionSubsystem):
 
     def __init__(self):
         super().__init__("TestSubsystem")
-        Requires.register("network.start")
+        # Put targets here
 
     def initialize(self):
-        print("Checking for network.start target...")
-        Requires.target("network.start")
-        print("Reached target!")
         return True
 
     def execute(self):
-        print("hello")
-        sleep(1)
-
-    def after_halt(self):
-        pass
-
-    def on_halt(self):
-        pass
+        print("h")
 
     def after_shutdown(self):
-        pass
+        print("Shutdown Complete!")
 
     def on_shutdown(self):
-        pass
-
-    def on_resume(self):
-        pass
+        print("On Shutdown!")
 
 
 if __name__ == '__main__':
     x = TestSubsystem()
     x.start()
-    sleep(5)
-    Requires.reach_target("network.start")
-    sleep(5)
-    # sleep(5)
-    # x.shutdown()
-    # sleep(3)
+    sleep(1)
+
